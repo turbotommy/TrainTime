@@ -3,6 +3,7 @@ package se.tomlab;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.file.FileSystems;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -42,6 +43,8 @@ import static java.util.Locale.*;
 public class Main {
     private HttpClient client;
     private HttpClientContext context = HttpClientContext.create();
+    private boolean bProxyNeeded=true;
+    private Properties props=new Properties();
 
     public JSONObject getJSON(String uri) throws Exception {
 
@@ -63,9 +66,16 @@ public class Main {
     }
 
     public void createHttpClient() throws Exception {
+        //Read properties
+        File f=new File(FileSystems.getDefault().getPath("test.properties"));
+        props.load(new FileInputStream());
         HttpClientBuilder httpClientBuilder = HttpClients.custom();
-        httpClientBuilder.setUserAgent("TrainTime 1.0");
-        httpClientBuilder.setProxy(new HttpHost("proxy.lfnet.se", 8080));
+        httpClientBuilder.setUserAgent("TrainTime 1.1");
+        if(bProxyNeeded) {
+            HttpHost proxyHost=new HttpHost(proxyHostName, proxyPort);
+            httpClientBuilder.setProxy(proxyHost);
+            proxyAuthenticate(user,passwd);
+        }
         client = httpClientBuilder.build();
     }
 
@@ -198,7 +208,6 @@ public class Main {
             System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "ERROR");
 */
             main.createHttpClient();
-            main.proxyAuthenticate("***REMOVED***","***REMOVED***");
 
             //Västerås
             System.out.println("Västerås");
