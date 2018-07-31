@@ -3,7 +3,6 @@ package se.tomlab;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
-import java.nio.file.FileSystems;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -43,8 +42,6 @@ import static java.util.Locale.*;
 public class Main {
     private HttpClient client;
     private HttpClientContext context = HttpClientContext.create();
-    private boolean bProxyNeeded=true;
-    private Properties props=new Properties();
 
     public JSONObject getJSON(String uri) throws Exception {
 
@@ -66,23 +63,9 @@ public class Main {
     }
 
     public void createHttpClient() throws Exception {
-        String proxyHostName="";
-        int proxyPort=0;
-        String user="";
-        String passwd="";
-
-        //Read properties
-        File f;
-        f = new File(String.valueOf(FileSystems.getDefault().getPath("test.properties")));
-        props.load(new FileInputStream(f));
-
         HttpClientBuilder httpClientBuilder = HttpClients.custom();
-        httpClientBuilder.setUserAgent("TrainTime 1.1");
-        if(bProxyNeeded) {
-            HttpHost proxyHost=new HttpHost(proxyHostName, proxyPort);
-            httpClientBuilder.setProxy(proxyHost);
-            proxyAuthenticate(user,passwd);
-        }
+        httpClientBuilder.setUserAgent("TrainTime 1.0");
+        httpClientBuilder.setProxy(new HttpHost("proxy.lfnet.se", 8080));
         client = httpClientBuilder.build();
     }
 
@@ -208,10 +191,6 @@ public class Main {
         Main main = new Main();
         String string = "";
         try {
-
-            Mangle mangle=new Mangle();
-
-            mangle.MangleTest();
             /*
             System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog");
             System.setProperty("org.apache.commons.logging.simplelog.showdatetime", "true");
@@ -219,6 +198,7 @@ public class Main {
             System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "ERROR");
 */
             main.createHttpClient();
+            main.proxyAuthenticate("b605td","Sorkart99=");
 
             //Västerås
             System.out.println("Västerås");
