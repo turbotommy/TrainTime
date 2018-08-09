@@ -66,9 +66,16 @@ public class Main {
     }
 
     public void createHttpClient() throws Exception {
+        String proxyHostName="";
+        int proxyPort=0;
+        String user="";
+        String passwd="";
+
         //Read properties
-        File f=new File(FileSystems.getDefault().getPath("test.properties"));
-        props.load(new FileInputStream());
+        File f;
+        f = new File(String.valueOf(FileSystems.getDefault().getPath("test.properties")));
+        props.load(new FileInputStream(f));
+
         HttpClientBuilder httpClientBuilder = HttpClients.custom();
         httpClientBuilder.setUserAgent("TrainTime 1.1");
         if(bProxyNeeded) {
