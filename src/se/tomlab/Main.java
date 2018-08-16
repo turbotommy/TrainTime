@@ -208,6 +208,10 @@ public class Main {
         Main main = new Main();
         String string = "";
         try {
+
+            Mangle mangle=new Mangle();
+
+            mangle.MangleTest();
             /*
             System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog");
             System.setProperty("org.apache.commons.logging.simplelog.showdatetime", "true");
