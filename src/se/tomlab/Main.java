@@ -1,8 +1,27 @@
 package se.tomlab;
 
-import java.io.*;
-import java.net.URL;
-import java.net.URLConnection;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.json.JSONPointer;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.file.FileSystems;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -10,29 +29,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Properties;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.AuthCache;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.http.impl.auth.DigestScheme;
-import org.apache.http.impl.client.*;
-import org.apache.http.util.EntityUtils;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.json.JSONPointer;
-import org.json.JSONString;
-
-import static java.util.Locale.*;
+import static java.util.Locale.ENGLISH;
 
 /**
  * @author Crunchify.com
@@ -42,6 +43,8 @@ import static java.util.Locale.*;
 public class Main {
     private HttpClient client;
     private HttpClientContext context = HttpClientContext.create();
+    private boolean bProxyNeeded=true;
+    private Properties props=new Properties();
 
     public JSONObject getJSON(String uri) throws Exception {
 
@@ -52,6 +55,7 @@ public class Main {
         HttpEntity respEntity=httpResponse.getEntity();
         System.out.println("Stream:" + respEntity.isStreaming());
         BufferedReader br=new BufferedReader(new InputStreamReader(respEntity.getContent()));
+
         StringBuilder sb = new StringBuilder();
         String line;
 
@@ -62,10 +66,29 @@ public class Main {
         return jsonObject;
     }
 
-    public void createHttpClient() throws Exception {
+    public void createHttpClient(String secretKey) throws Exception {
+        String proxyHostName="";
+        int proxyPort=0;
+        String user="";
+        String passwd="";
+        Mangle mangle;
+
+        //Read properties
+        File f;
+        f = new File(String.valueOf(FileSystems.getDefault().getPath("params.props")));
+        props.load(new FileInputStream(f));
+
+        mangle=new Mangle();
+
+        props=mangle.decryptMap(secretKey, props);
+
         HttpClientBuilder httpClientBuilder = HttpClients.custom();
-        httpClientBuilder.setUserAgent("TrainTime 1.0");
-        httpClientBuilder.setProxy(new HttpHost("proxy.lfnet.se", 8080));
+        httpClientBuilder.setUserAgent("TrainTime 1.1");
+        if(bProxyNeeded) {
+            HttpHost proxyHost=new HttpHost(proxyHostName, proxyPort);
+            httpClientBuilder.setProxy(proxyHost);
+            proxyAuthenticate(user,passwd);
+        }
         client = httpClientBuilder.build();
     }
 
@@ -191,14 +214,26 @@ public class Main {
         Main main = new Main();
         String string = "";
         try {
+            if (args.length>1&&args[1].toLowerCase().contains("noproxy")) {
+                main.bProxyNeeded=false;
+            }
+
+            //ta/U2uQypy332dIZSnGEfQ==
+            Mangle mangle=new Mangle();
+
+            String secret=mangle.encryptMap(new Properties());
+            mangle.MangleTest();
+
+
+
             /*
             System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog");
             System.setProperty("org.apache.commons.logging.simplelog.showdatetime", "true");
             System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http", "DEBUG");
             System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "ERROR");
 */
-            main.createHttpClient();
-            main.proxyAuthenticate("b605td","Sorkart99=");
+            main.createHttpClient(args[0]);
+            main.proxyAuthenticate("user","password");
 
             //Västerås
             System.out.println("Västerås");

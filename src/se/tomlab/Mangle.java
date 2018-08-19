@@ -3,10 +3,63 @@ package se.tomlab;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.FileOutputStream;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.Iterator;
+import java.util.Properties;
 
 public class Mangle {
     Cipher cipher;
+
+    public String encryptMap(Properties props) throws Exception {
+        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+        keyGenerator.init(128); // block size is 128bits
+        SecretKey secretKey = keyGenerator.generateKey();
+
+        cipher = Cipher.getInstance("AES"); //SunJCE provider AES algorithm, mode(optional) and padding schema(optional)
+
+        props.setProperty("user", encrypt("b605td", secretKey));
+        props.setProperty("passwd", encrypt("Sorkart88=", secretKey));
+
+        props.store(new FileOutputStream("temp.props"),"UnknownProps");
+
+        final byte[] keyData = secretKey.getEncoded();
+        final String encodedKey = Base64.getEncoder().encodeToString(keyData);
+        return encodedKey;
+    }
+
+    public Properties decryptMap(String secret, Properties props) {
+
+        try {
+            final byte[] keyData = Base64.getDecoder().decode(secret);
+            final int keysize = keyData.length * Byte.SIZE;
+
+            if (Cipher.getMaxAllowedKeyLength("AES") < keysize) {
+                // this may be an issue if unlimited crypto is not installed
+                throw new IllegalArgumentException("Key size of " + keysize
+                        + " not supported in this runtime");
+            }
+
+            // throws IllegalArgumentException - if key is empty
+            final SecretKeySpec aesKey = new SecretKeySpec(keyData, "AES");
+
+            Iterator iValues=props.values().iterator();
+
+            iValues.forEachRemaining(s -> {
+                try {
+                    s= (Object) decrypt((String) s,aesKey);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+
+        return props;
+    }
 
     public void MangleTest() throws Exception {
     /*
