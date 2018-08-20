@@ -67,10 +67,6 @@ public class Main {
     }
 
     public void createHttpClient(String secretKey) throws Exception {
-        String proxyHostName="";
-        int proxyPort=0;
-        String user="";
-        String passwd="";
         Mangle mangle;
 
         //Read properties
@@ -82,28 +78,36 @@ public class Main {
 
         props=mangle.decryptMap(secretKey, props);
 
+        String pHostmane=props.getProperty("phostname");
+        int pPort=new Integer(props.getProperty("pport"));
+        String pUser=props.getProperty("puser");
+        String pPasswd=props.getProperty("ppasswd");
+
         HttpClientBuilder httpClientBuilder = HttpClients.custom();
         httpClientBuilder.setUserAgent("TrainTime 1.1");
-        if(bProxyNeeded) {
-            HttpHost proxyHost=new HttpHost(proxyHostName, proxyPort);
-            httpClientBuilder.setProxy(proxyHost);
-            proxyAuthenticate(user,passwd);
-        }
-        client = httpClientBuilder.build();
-    }
-
-    private void proxyAuthenticate(String username, String password) {
-        UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(username, password);
-        AuthScope scope = new AuthScope("proxy.lfnet.se", 8080);
-
         CredentialsProvider provider = new BasicCredentialsProvider();
-        provider.setCredentials(scope, credentials);
+
+        if(bProxyNeeded) {
+            HttpHost proxyHost=new HttpHost(pHostmane, pPort);
+            httpClientBuilder.setProxy(proxyHost);
+            UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(pUser, pPasswd);
+            AuthScope scope = new AuthScope(pHostmane, pPort);
+
+            provider.setCredentials(scope, credentials);
+
+        }
+        String hostName=props.getProperty("hostname");
+        int port=new Integer(props.getProperty("port"));
+        String user=props.getProperty("user");
+        String passwd=props.getProperty("passwd");
 
         provider.setCredentials(
-                new AuthScope("api.tagtider.net", 80),
-                new UsernamePasswordCredentials("tagtider", "codemocracy"));
+                new AuthScope(hostName, port),
+                new UsernamePasswordCredentials(user, passwd));
 
         context.setCredentialsProvider(provider);
+
+        client = httpClientBuilder.build();
     }
 
     private Date getDate(JSONObject jsonObject, String key) {
@@ -218,13 +222,9 @@ public class Main {
                 main.bProxyNeeded=false;
             }
 
-            //ta/U2uQypy332dIZSnGEfQ==
-            Mangle mangle=new Mangle();
-
-            String secret=mangle.encryptMap(new Properties());
-            mangle.MangleTest();
-
-
+            //Mangle mangle=new Mangle();
+            //String secret=mangle.encryptMap(new Properties());
+            //mangle.MangleTest();
 
             /*
             System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.SimpleLog");
@@ -233,7 +233,6 @@ public class Main {
             System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "ERROR");
 */
             main.createHttpClient(args[0]);
-            main.proxyAuthenticate("user","password");
 
             //Västerås
             System.out.println("Västerås");
@@ -249,7 +248,7 @@ public class Main {
             //Remove all entries without delays
             JSONArray jaSthlmDelayed=main.getDelays("Stockholm", joSthlm);
 
-            System.out.println(joSthlm);
+            //System.out.println(joSthlm);
             } catch (Exception e) {
                 System.out.println("\nNu blev det fel!");
                 System.out.println(e);
