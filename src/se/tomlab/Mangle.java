@@ -2,26 +2,33 @@ package se.tomlab;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.FileOutputStream;
 import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-import java.util.Iterator;
-import java.util.Properties;
+import java.util.*;
 
 public class Mangle {
     Cipher cipher;
+
+    public Mangle() throws NoSuchPaddingException, NoSuchAlgorithmException {
+        cipher = Cipher.getInstance("AES"); //SunJCE provider AES algorithm, mode(optional) and padding schema(optional)
+    }
 
     public String encryptMap(Properties props) throws Exception {
         KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
         keyGenerator.init(128); // block size is 128bits
         SecretKey secretKey = keyGenerator.generateKey();
 
-        cipher = Cipher.getInstance("AES"); //SunJCE provider AES algorithm, mode(optional) and padding schema(optional)
-
-        props.setProperty("user", encrypt("b605td", secretKey));
-        props.setProperty("passwd", encrypt("Sorkart88=", secretKey));
+        props.setProperty("user", encrypt("tagtider", secretKey));
+        props.setProperty("passwd", encrypt("codemocracy", secretKey));
+        props.setProperty("hostname", encrypt("api.tagtider.net", secretKey));
+        props.setProperty("port", encrypt("80", secretKey));
+        props.setProperty("puser", encrypt("", secretKey));
+        props.setProperty("ppasswd", encrypt("", secretKey));
+        props.setProperty("phostname", encrypt("", secretKey));
+        props.setProperty("pport", encrypt("", secretKey));
 
         props.store(new FileOutputStream("temp.props"),"UnknownProps");
 
@@ -45,16 +52,13 @@ public class Mangle {
             // throws IllegalArgumentException - if key is empty
             final SecretKeySpec aesKey = new SecretKeySpec(keyData, "AES");
 
-            Iterator iValues=props.values().iterator();
+            for (Map.Entry<Object, Object> e : props.entrySet()) {
+                String key = (String) e.getKey();
+                String value = decrypt((String) e.getValue(),aesKey);
+                e.setValue(value);
+            }
 
-            iValues.forEachRemaining(s -> {
-                try {
-                    s= (Object) decrypt((String) s,aesKey);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        } catch (NoSuchAlgorithmException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -78,8 +82,6 @@ public class Mangle {
       padding: ensuring messages are the proper length necessary for certain ciphers
       mode/padding are not used with stream cyphers.
      */
-        cipher = Cipher.getInstance("AES"); //SunJCE provider AES algorithm, mode(optional) and padding schema(optional)
-
         String plainText = "AES Symmetric Encryption Decryption";
         System.out.println("Plain Text Before Encryption: " + plainText);
 
@@ -105,6 +107,7 @@ public class Mangle {
         Base64.Decoder decoder = Base64.getDecoder();
         byte[] encryptedTextByte = decoder.decode(encryptedText);
         cipher.init(Cipher.DECRYPT_MODE, secretKey);
+
         byte[] decryptedByte = cipher.doFinal(encryptedTextByte);
         String decryptedText = new String(decryptedByte);
         return decryptedText;
