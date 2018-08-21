@@ -83,16 +83,16 @@ public class Main {
 
         props=mangle.decryptMap(secretKey, props);
 
-        String pHostmane=props.getProperty("phostname");
-        int pPort=new Integer(props.getProperty("pport"));
-        String pUser=props.getProperty("puser");
-        String pPasswd=props.getProperty("ppasswd");
-
         HttpClientBuilder httpClientBuilder = HttpClients.custom();
         httpClientBuilder.setUserAgent("TrainTime 1.1");
         CredentialsProvider provider = new BasicCredentialsProvider();
 
         if(bProxyNeeded) {
+            String pHostmane=props.getProperty("phostname");
+            int pPort= Integer.valueOf(props.getProperty("pport"));
+            String pUser=props.getProperty("puser");
+            String pPasswd=props.getProperty("ppasswd");
+
             HttpHost proxyHost=new HttpHost(pHostmane, pPort);
             httpClientBuilder.setProxy(proxyHost);
             UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(pUser, pPasswd);
@@ -102,7 +102,7 @@ public class Main {
 
         }
         String hostName=props.getProperty("hostname");
-        int port=new Integer(props.getProperty("port"));
+        int port= Integer.valueOf(props.getProperty("port"));
         String user=props.getProperty("user");
         String passwd=props.getProperty("passwd");
 
