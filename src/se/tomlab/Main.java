@@ -45,6 +45,11 @@ public class Main {
     private HttpClientContext context = HttpClientContext.create();
     private boolean bProxyNeeded=true;
     private Properties props=new Properties();
+    private ZonedDateTime zdtSuggestedNextRun;
+
+    public Main() {
+        zdtSuggestedNextRun = ZonedDateTime.of(9,9,9,9,9,9,9,ZoneId.systemDefault());
+    }
 
     public JSONObject getJSON(String uri) throws Exception {
 
@@ -126,6 +131,10 @@ public class Main {
     }
 
     private ZonedDateTime getZonedDateTime(JSONObject jsonObject, String key) {
+        return getZonedDateTime(jsonObject,key,false);
+    }
+
+    private ZonedDateTime getZonedDateTime(JSONObject jsonObject, String key, boolean bCheckNextRun) {
         ZonedDateTime zdt=null;
         try {
             String s=jsonObject.optString(key, null);
@@ -154,8 +163,8 @@ public class Main {
             long lDepartureMinutesLate=0;
             long lArrivalMinutesLate=0;
 
-            ZonedDateTime zdtNewArrival=getZonedDateTime(joTransfer, "newArrival");
-            ZonedDateTime zdtArrival=getZonedDateTime(joTransfer, "arrival");
+            ZonedDateTime zdtNewArrival=getZonedDateTime(joTransfer, "newArrival",true);
+            ZonedDateTime zdtArrival=getZonedDateTime(joTransfer, "arrival",true);
             ZonedDateTime zdtNewDeparture=getZonedDateTime(joTransfer, "newDeparture");
             ZonedDateTime zdtDeparture=getZonedDateTime(joTransfer, "departure");
 
