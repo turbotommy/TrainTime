@@ -48,7 +48,7 @@ public class Main {
     private ZonedDateTime zdtSuggestedNextRun;
 
     public Main() {
-        zdtSuggestedNextRun = ZonedDateTime.of(9,9,9,9,9,9,9,ZoneId.systemDefault());
+        zdtSuggestedNextRun = ZonedDateTime.of(2222,9,9,9,9,9,9,ZoneId.systemDefault());
     }
 
     public JSONObject getJSON(String uri) throws Exception {
@@ -142,6 +142,12 @@ public class Main {
                 DateTimeFormatter dtf=DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
                 LocalDateTime ldt=LocalDateTime.parse(s,dtf);
                 zdt=ldt.atZone(ZoneId.systemDefault());
+                if(bCheckNextRun) {
+                    //Check the earliest time.
+                    if(zdtSuggestedNextRun.isAfter(zdt)) {
+                        zdtSuggestedNextRun=zdt;
+                    }
+                }
             }
         } catch (Exception e){
             System.out.println(e.getLocalizedMessage());
@@ -256,6 +262,8 @@ public class Main {
 
             //Remove all entries without delays
             JSONArray jaSthlmDelayed=main.getDelays("Stockholm", joSthlm);
+
+            System.out.println("Next run: "+main.zdtSuggestedNextRun);
 
             //System.out.println(joSthlm);
             } catch (Exception e) {
