@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Properties;
@@ -144,6 +145,8 @@ public class Main {
                 zdt=ldt.atZone(ZoneId.systemDefault());
                 if(bCheckNextRun) {
                     //Check the earliest time.
+                    //Compare late time with ordinary
+                    System.out.println(jsonObject);
                     if(zdtSuggestedNextRun.isAfter(zdt)) {
                         zdtSuggestedNextRun=zdt;
                     }
@@ -160,15 +163,27 @@ public class Main {
         JSONArray jaOut=new JSONArray();
         JSONPointer jp=new JSONPointer("/station/transfers/transfer");
         Object obj= jp.queryFrom(joIn);
+        String[] blacklist= new String[]{"Eskilstuna","Fagersta","Sala"};
 
         JSONArray jaTransfers= (JSONArray) obj;
 
         jaTransfers.forEach(transferObj -> {
             JSONObject joTransfer=(JSONObject)transferObj;
+            boolean bExclude=false;
 
             long lDepartureMinutesLate=0;
             long lArrivalMinutesLate=0;
 
+            String sOrigin=joTransfer.getString("origin");
+            String sDestination=joTransfer.getString("destination");
+
+            //Filter
+            for (String town:blacklist) {
+                if(sOrigin.contains(town)) {
+                    bExclude=true;
+                    System.out.println(sOrigin+" bort");
+                }
+            }
             ZonedDateTime zdtNewArrival=getZonedDateTime(joTransfer, "newArrival",true);
             ZonedDateTime zdtArrival=getZonedDateTime(joTransfer, "arrival",true);
             ZonedDateTime zdtNewDeparture=getZonedDateTime(joTransfer, "newDeparture");
@@ -176,9 +191,6 @@ public class Main {
 
             StringBuilder sbOut=new StringBuilder(sStation);
             sbOut.append(", Tåg");
-
-            String sOrigin=joTransfer.getString("origin");
-            String sDestination=joTransfer.getString("destination");
 
             if(sOrigin.length()>0) {
                 sbOut.append(" från ");
