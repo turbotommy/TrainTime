@@ -143,14 +143,6 @@ public class Main {
                 DateTimeFormatter dtf=DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
                 LocalDateTime ldt=LocalDateTime.parse(s,dtf);
                 zdt=ldt.atZone(ZoneId.systemDefault());
-                if(bCheckNextRun) {
-                    //Check the earliest time.
-                    //Compare late time with ordinary
-                    System.out.println(jsonObject);
-                    if(zdtSuggestedNextRun.isAfter(zdt)) {
-                        zdtSuggestedNextRun=zdt;
-                    }
-                }
             }
         } catch (Exception e){
             System.out.println(e.getLocalizedMessage());
@@ -163,13 +155,13 @@ public class Main {
         JSONArray jaOut=new JSONArray();
         JSONPointer jp=new JSONPointer("/station/transfers/transfer");
         Object obj= jp.queryFrom(joIn);
-        String[] blacklist= new String[]{"Eskilstuna","Fagersta","Sala"};
+        String[] whitelist= new String[]{"Västerås", "Stockholm", "Skövde,Örebro","Arboga"};
 
         JSONArray jaTransfers= (JSONArray) obj;
 
         jaTransfers.forEach(transferObj -> {
             JSONObject joTransfer=(JSONObject)transferObj;
-            boolean bExclude=false;
+            boolean bInclude=false;
 
             long lDepartureMinutesLate=0;
             long lArrivalMinutesLate=0;
@@ -177,68 +169,93 @@ public class Main {
             String sOrigin=joTransfer.getString("origin");
             String sDestination=joTransfer.getString("destination");
 
+            String sOtherTowns=sOrigin;
+            if(sOtherTowns.length()==0)
+                sOtherTowns=sDestination;
+
             //Filter
-            for (String town:blacklist) {
-                if(sOrigin.contains(town)) {
-                    bExclude=true;
-                    System.out.println(sOrigin+" bort");
+            for (String town:whitelist) {
+                if(sOtherTowns.contains(town)) {
+                    bInclude=true;
+                    break;
                 }
             }
-            ZonedDateTime zdtNewArrival=getZonedDateTime(joTransfer, "newArrival",true);
-            ZonedDateTime zdtArrival=getZonedDateTime(joTransfer, "arrival",true);
-            ZonedDateTime zdtNewDeparture=getZonedDateTime(joTransfer, "newDeparture");
-            ZonedDateTime zdtDeparture=getZonedDateTime(joTransfer, "departure");
+            if(bInclude) {
+                ZonedDateTime zdtNewArrival=getZonedDateTime(joTransfer, "newArrival",true);
+                ZonedDateTime zdtArrival=getZonedDateTime(joTransfer, "arrival",true);
 
-            StringBuilder sbOut=new StringBuilder(sStation);
-            sbOut.append(", Tåg");
+                CalculateNextRun(zdtArrival, zdtNewArrival);
 
-            if(sOrigin.length()>0) {
-                sbOut.append(" från ");
-                sbOut.append(sOrigin);
-            }
+                ZonedDateTime zdtNewDeparture=getZonedDateTime(joTransfer, "newDeparture");
+                ZonedDateTime zdtDeparture=getZonedDateTime(joTransfer, "departure");
 
-            if(sDestination.length()>0) {
-                sbOut.append(" till ");
-                sbOut.append(sDestination);
-            }
+                StringBuilder sbOut=new StringBuilder(sStation);
+                sbOut.append(", Tåg");
 
-            if(zdtNewArrival != null) {
-                //How late is it?
-                lArrivalMinutesLate= Duration.between(zdtArrival, zdtNewArrival).toMinutes();
-                joTransfer.put("arrivalminuteslate", lArrivalMinutesLate);
+                if(sOrigin.length()>0) {
+                    sbOut.append(" från ");
+                    sbOut.append(sOrigin);
+                }
 
-                sbOut.append(", ankommer ");
-                sbOut.append(zdtNewArrival.toLocalTime());
-                sbOut.append(", ");
-                sbOut.append(lArrivalMinutesLate);
-                sbOut.append(" min sent");
-            }
+                if(sDestination.length()>0) {
+                    sbOut.append(" till ");
+                    sbOut.append(sDestination);
+                }
 
-            if(zdtNewDeparture != null) {
-                //How late is it?
-                lDepartureMinutesLate= Duration.between(zdtDeparture, zdtNewDeparture).toMinutes();
-                joTransfer.put("departureminuteslate", lDepartureMinutesLate);
+                if(zdtNewArrival != null) {
+                    //How late is it?
+                    lArrivalMinutesLate= Duration.between(zdtArrival, zdtNewArrival).toMinutes();
+                    joTransfer.put("arrivalminuteslate", lArrivalMinutesLate);
 
-                sbOut.append(", avgår ");
-                sbOut.append(zdtNewDeparture.toLocalTime());
-                sbOut.append(", ");
-                sbOut.append(lDepartureMinutesLate);
-                sbOut.append(" min sent");
-            }
-
-            if(zdtNewDeparture != null | zdtNewArrival != null) {
-                Object oComment=joTransfer.optJSONObject("comment");
-                if(oComment != null) {
+                    sbOut.append(", ankommer ");
+                    sbOut.append(zdtNewArrival.toLocalTime());
                     sbOut.append(", ");
-                    sbOut.append(oComment);
+                    sbOut.append(lArrivalMinutesLate);
+                    sbOut.append(" min sent");
                 }
-                jaOut.put(joTransfer);
-                System.out.println(sbOut);
+
+                if(zdtNewDeparture != null) {
+                    //How late is it?
+                    lDepartureMinutesLate= Duration.between(zdtDeparture, zdtNewDeparture).toMinutes();
+                    joTransfer.put("departureminuteslate", lDepartureMinutesLate);
+
+                    sbOut.append(", avgår ");
+                    sbOut.append(zdtNewDeparture.toLocalTime());
+                    sbOut.append(", ");
+                    sbOut.append(lDepartureMinutesLate);
+                    sbOut.append(" min sent");
+                }
+
+                if(zdtNewDeparture != null | zdtNewArrival != null) {
+                    Object oComment=joTransfer.optJSONObject("comment");
+                    if(oComment != null) {
+                        sbOut.append(", ");
+                        sbOut.append(oComment);
+                    }
+                    jaOut.put(joTransfer);
+                    System.out.println(sbOut);
+                }
+            }
+            else {
+                System.out.println("Bort:"+joTransfer);
             }
         });
-
         return jaOut;
+    }
 
+    private void CalculateNextRun(ZonedDateTime zdtArrival, ZonedDateTime zdtNewArrival) {
+        //Check the earliest time.
+        //Compare late time with ordinary
+
+        ZonedDateTime zdt;
+        if(zdtNewArrival!=null) {
+            zdt=zdtNewArrival;
+        } else {
+            zdt=zdtArrival;
+        }
+        if(zdt!=null&&zdtSuggestedNextRun.isAfter(zdt)) {
+            zdtSuggestedNextRun=zdt;
+        }
     }
 
     public static void main(String[] args) {
@@ -249,6 +266,7 @@ public class Main {
                 main.bProxyNeeded=false;
             }
 
+            //TODO: Argument for writing encrypted parameters
             //Mangle mangle=new Mangle();
             //String secret=mangle.encryptMap(new Properties());
             //mangle.MangleTest();
