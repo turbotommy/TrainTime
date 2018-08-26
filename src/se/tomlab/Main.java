@@ -17,10 +17,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONPointer;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.file.FileSystems;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -29,10 +26,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 import static java.util.Locale.ENGLISH;
 
@@ -166,6 +164,7 @@ public class Main {
             long lDepartureMinutesLate=0;
             long lArrivalMinutesLate=0;
 
+            String sTrainId=joTransfer.getString("train");
             String sOrigin=joTransfer.getString("origin");
             String sDestination=joTransfer.getString("destination");
 
@@ -190,7 +189,8 @@ public class Main {
                 ZonedDateTime zdtDeparture=getZonedDateTime(joTransfer, "departure");
 
                 StringBuilder sbOut=new StringBuilder(sStation);
-                sbOut.append(", Tåg");
+                sbOut.append(", Tåg ");
+                sbOut.append(sTrainId);
 
                 if(sOrigin.length()>0) {
                     sbOut.append(" från ");
@@ -237,7 +237,7 @@ public class Main {
                 }
             }
             else {
-                System.out.println("Bort:"+joTransfer);
+                //System.out.println("Bort:"+joTransfer);
             }
         });
         return jaOut;
@@ -256,6 +256,54 @@ public class Main {
         if(zdt!=null&&zdtSuggestedNextRun.isAfter(zdt)) {
             zdtSuggestedNextRun=zdt;
         }
+    }
+
+    public void AdjustNextRun() {
+        ZonedDateTime zdtCurrentTime=ZonedDateTime.now();
+        long lMinutesDiff=Duration.between(zdtCurrentTime,zdtSuggestedNextRun ).toMinutes();
+
+        if(lMinutesDiff<=0) {
+            zdtSuggestedNextRun=zdtCurrentTime.plusMinutes(2);
+        } else if(lMinutesDiff<2) {
+            zdtSuggestedNextRun=zdtSuggestedNextRun.plusMinutes(2);
+        } else {
+            zdtSuggestedNextRun=zdtSuggestedNextRun.minusMinutes(1);
+        }
+    }
+
+    private class StreamGobbler implements Runnable {
+        private InputStream inputStream;
+        private Consumer<String> consumer;
+
+        public StreamGobbler(InputStream inputStream, Consumer<String> consumer) {
+            this.inputStream = inputStream;
+            this.consumer = consumer;
+        }
+
+        @Override
+        public void run() {
+            new BufferedReader(new InputStreamReader(inputStream)).lines()
+                    .forEach(consumer);
+        }
+    }
+
+    private void ExecuteAtCmd() throws IOException, InterruptedException {
+        boolean isWindows = System.getProperty("os.name")
+                .toLowerCase().startsWith("windows");
+
+        ProcessBuilder builder = new ProcessBuilder();
+        if (isWindows) {
+            builder.command("cmd.exe", "/c", "dir");
+        } else {
+            builder.command("sh", "-c", "ls");
+        }
+        builder.directory(new File(System.getProperty("user.home")));
+        Process process = builder.start();
+        StreamGobbler streamGobbler =
+                new StreamGobbler(process.getInputStream(), System.out::println);
+        Executors.newSingleThreadExecutor().submit(streamGobbler);
+        int exitCode = process.waitFor();
+        assert exitCode == 0;
     }
 
     public static void main(String[] args) {
@@ -293,6 +341,7 @@ public class Main {
             //Remove all entries without delays
             JSONArray jaSthlmDelayed=main.getDelays("Stockholm", joSthlm);
 
+            main.AdjustNextRun();
             System.out.println("Next run: "+main.zdtSuggestedNextRun);
 
             //System.out.println(joSthlm);
