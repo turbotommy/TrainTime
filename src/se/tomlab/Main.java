@@ -344,7 +344,8 @@ public class Main {
             main.AdjustNextRun();
             System.out.println("Next run: "+main.zdtSuggestedNextRun);
 
-            //System.out.println(joSthlm);
+            System.out.println(jaVasDelayed);
+            System.out.println(jaSthlmDelayed);
             } catch (Exception e) {
                 System.out.println("\nNu blev det fel!");
                 System.out.println(e);
