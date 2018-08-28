@@ -18,6 +18,7 @@ import org.json.JSONObject;
 import org.json.JSONPointer;
 
 import java.io.*;
+import java.nio.CharBuffer;
 import java.nio.file.FileSystems;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -291,17 +292,29 @@ public class Main {
         boolean isWindows = System.getProperty("os.name")
                 .toLowerCase().startsWith("windows");
 
+        //# Using the dedicated -f flag
+        //$ at now + 1 minute -f script.sh
+
         ProcessBuilder builder = new ProcessBuilder();
         if (isWindows) {
             builder.command("cmd.exe", "/c", "dir");
         } else {
-            builder.command("sh", "-c", "ls");
+            builder.command("sh",
+                    "-c", "ls");
         }
+
         builder.directory(new File(System.getProperty("user.home")));
+        builder.redirectOutput();
         Process process = builder.start();
-        StreamGobbler streamGobbler =
-                new StreamGobbler(process.getInputStream(), System.out::println);
-        Executors.newSingleThreadExecutor().submit(streamGobbler);
+
+        BufferedReader br=new BufferedReader(new InputStreamReader(process.getInputStream()));
+        //StreamGobbler streamGobbler = new StreamGobbler(process.getInputStream(), System.out::println);
+        //Executors.newSingleThreadExecutor().submit(streamGobbler);
+        StringBuffer sb=new StringBuffer();
+        CharBuffer cb=CharBuffer.allocate(100);
+        while(br.read()>0) {
+            System.out.println(br.readLine());
+        }
         int exitCode = process.waitFor();
         assert exitCode == 0;
     }
@@ -341,8 +354,13 @@ public class Main {
             //Remove all entries without delays
             JSONArray jaSthlmDelayed=main.getDelays("Stockholm", joSthlm);
 
+            JSONArray jaDelayed=jaSthlmDelayed.put(jaVasDelayed);
+
+            //main.SaveDelayed(String sFile, jaDelayed);
+
             main.AdjustNextRun();
             System.out.println("Next run: "+main.zdtSuggestedNextRun);
+            //main.ExecuteAtCmd();
 
             System.out.println(jaVasDelayed);
             System.out.println(jaSthlmDelayed);
