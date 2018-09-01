@@ -18,6 +18,7 @@ import org.json.JSONObject;
 import org.json.JSONPointer;
 
 import java.io.*;
+import java.nio.CharBuffer;
 import java.nio.file.FileSystems;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -26,10 +27,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Date;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.concurrent.Executors;
+import java.util.*;
 import java.util.function.Consumer;
 
 import static java.util.Locale.ENGLISH;
@@ -38,16 +36,59 @@ import static java.util.Locale.ENGLISH;
  * @author Crunchify.com
  *
  */
-
 public class Main {
     private HttpClient client;
     private HttpClientContext context = HttpClientContext.create();
     private boolean bProxyNeeded=true;
     private Properties props=new Properties();
     private ZonedDateTime zdtSuggestedNextRun;
+    private JSONArray jsonDelayed;
+    private File fDelayedFile;
+    private List<String> lTrain;
+    private JSONMap<String, JSONObject> jsonmDelayed;
+    private JSONObject jsonoDelayed;
 
     public Main() {
         zdtSuggestedNextRun = ZonedDateTime.of(2222,9,9,9,9,9,9,ZoneId.systemDefault());
+        fDelayedFile=new File("Delayed-"+ZonedDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE)+".json");
+        jsonDelayed=new JSONArray();
+        jsonmDelayed=new JSONMap<String, JSONObject>();
+        jsonoDelayed=new JSONObject();
+
+        if(fDelayedFile.exists()) {
+            //Read latefile
+
+            //JSONObject jso=getJSON(fDelayedFile);
+            try {
+                ObjectInputStream ois=new ObjectInputStream(new FileInputStream(fDelayedFile));
+                Object obj=ois.readObject();
+                jsonmDelayed=(JSONMap<String, JSONObject>)obj;
+            } catch (IOException e) {
+                System.out.println("IOFel");
+                e.printStackTrace();
+            } catch (ClassNotFoundException e) {
+                System.out.println("Hittar ej klassen");
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private JSONObject getJSON(File f) throws IOException {
+        InputStreamReader isr=new InputStreamReader(new FileInputStream(f));
+
+        return getJSON(isr);
+    }
+
+    private JSONObject getJSON(InputStreamReader isr) throws IOException {
+        BufferedReader br=new BufferedReader(isr);
+        StringBuilder sb = new StringBuilder();
+        String line;
+
+        while ((line = br.readLine()) != null) {
+            sb.append(line);
+        }
+        JSONObject jsonObject=new JSONObject(sb.toString());
+        return jsonObject;
     }
 
     public JSONObject getJSON(String uri) throws Exception {
@@ -58,16 +99,8 @@ public class Main {
         System.out.println("######################### " + statusCode);
         HttpEntity respEntity=httpResponse.getEntity();
         System.out.println("Stream:" + respEntity.isStreaming());
-        BufferedReader br=new BufferedReader(new InputStreamReader(respEntity.getContent()));
 
-        StringBuilder sb = new StringBuilder();
-        String line;
-
-        while ((line = br.readLine()) != null) {
-            sb.append(line);
-        }
-        JSONObject jsonObject=new JSONObject(sb.toString());
-        return jsonObject;
+        return getJSON(new InputStreamReader(respEntity.getContent()));
     }
 
     public void createHttpClient(String secretKey) throws Exception {
@@ -232,7 +265,11 @@ public class Main {
                         sbOut.append(", ");
                         sbOut.append(oComment);
                     }
+
                     jaOut.put(joTransfer);
+                    jsonDelayed.put(joTransfer);
+                    jsonmDelayed.putIfEmpty(sTrainId,joTransfer);
+                    jsonoDelayed.put(sTrainId,joTransfer);
                     System.out.println(sbOut);
                 }
             }
@@ -291,19 +328,42 @@ public class Main {
         boolean isWindows = System.getProperty("os.name")
                 .toLowerCase().startsWith("windows");
 
+        //# Using the dedicated -f flag
+        //$ at now + 1 minute -f script.sh
+
         ProcessBuilder builder = new ProcessBuilder();
         if (isWindows) {
             builder.command("cmd.exe", "/c", "dir");
         } else {
-            builder.command("sh", "-c", "ls");
+            builder.command("sh",
+                    "-c", "ls");
         }
+
         builder.directory(new File(System.getProperty("user.home")));
+        builder.redirectOutput();
         Process process = builder.start();
-        StreamGobbler streamGobbler =
-                new StreamGobbler(process.getInputStream(), System.out::println);
-        Executors.newSingleThreadExecutor().submit(streamGobbler);
+
+        BufferedReader br=new BufferedReader(new InputStreamReader(process.getInputStream()));
+        //StreamGobbler streamGobbler = new StreamGobbler(process.getInputStream(), System.out::println);
+        //Executors.newSingleThreadExecutor().submit(streamGobbler);
+        StringBuffer sb=new StringBuffer();
+        CharBuffer cb=CharBuffer.allocate(100);
+        while(br.read()>0) {
+            System.out.println(br.readLine());
+        }
         int exitCode = process.waitFor();
         assert exitCode == 0;
+    }
+
+    private void SaveJSONObject(String sTown, JSONObject jsonObject) {
+        String sNow=ZonedDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).replace(":",".");
+        try {
+            FileWriter fw=new FileWriter(sTown+"-"+sNow+".json");
+            jsonObject.write(fw);
+            fw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void main(String[] args) {
@@ -331,6 +391,8 @@ public class Main {
             System.out.println("Västerås");
             JSONObject joVas = main.getJSON("http://api.tagtider.net/v1/stations/314.json");
 
+            main.SaveJSONObject("Västerås", joVas);
+
             //Remove all entries without delays
             JSONArray jaVasDelayed=main.getDelays("Västerås", joVas);
 
@@ -338,11 +400,26 @@ public class Main {
             System.out.println("Stockholm");
             JSONObject joSthlm= main.getJSON("http://api.tagtider.net/v1/stations/243.json");
 
+            main.SaveJSONObject("Stockholm", joSthlm);
+
             //Remove all entries without delays
             JSONArray jaSthlmDelayed=main.getDelays("Stockholm", joSthlm);
 
+            main.SaveDelayed();
+
             main.AdjustNextRun();
+
+
+            FileOutputStream fos=new FileOutputStream(main.fDelayedFile);
+            ObjectOutputStream oos=new ObjectOutputStream(fos);
+            main.jsonoDelayed.put("Test",joVas);
+            main.jsonmDelayed.put("Test",joVas);
+            //oos.writeObject(main.jsonmDelayed);
+            //oos.close();
+
+
             System.out.println("Next run: "+main.zdtSuggestedNextRun);
+            //main.ExecuteAtCmd();
 
             System.out.println(jaVasDelayed);
             System.out.println(jaSthlmDelayed);
@@ -350,6 +427,16 @@ public class Main {
                 System.out.println("\nNu blev det fel!");
                 System.out.println(e);
             }
+    }
 
+    private void SaveDelayed() {
+        try {
+            FileWriter fw=new FileWriter(fDelayedFile);
+            jsonDelayed.write(fw);
+            fw.close();
+        } catch (IOException e) {
+            System.out.println("Fel vid filskrivning.");
+            e.printStackTrace();
+        }
     }
 }
