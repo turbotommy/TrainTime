@@ -45,29 +45,23 @@ public class Main {
     private JSONArray jsonDelayed;
     private File fDelayedFile;
     private List<String> lTrain;
-    private JSONMap<String, JSONObject> jsonmDelayed;
+    //private JSONMap<String, JSONObject> jsonmDelayed;
     private JSONObject jsonoDelayed;
 
     public Main() {
         zdtSuggestedNextRun = ZonedDateTime.of(2222,9,9,9,9,9,9,ZoneId.systemDefault());
         fDelayedFile=new File("Delayed-"+ZonedDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE)+".json");
         jsonDelayed=new JSONArray();
-        jsonmDelayed=new JSONMap<String, JSONObject>();
+        //jsonmDelayed=new JSONMap<String, JSONObject>();
         jsonoDelayed=new JSONObject();
 
         if(fDelayedFile.exists()) {
             //Read latefile
 
-            //JSONObject jso=getJSON(fDelayedFile);
             try {
-                ObjectInputStream ois=new ObjectInputStream(new FileInputStream(fDelayedFile));
-                Object obj=ois.readObject();
-                jsonmDelayed=(JSONMap<String, JSONObject>)obj;
+                jsonoDelayed=getJSON(fDelayedFile);
             } catch (IOException e) {
                 System.out.println("IOFel");
-                e.printStackTrace();
-            } catch (ClassNotFoundException e) {
-                System.out.println("Hittar ej klassen");
                 e.printStackTrace();
             }
         }
@@ -268,7 +262,7 @@ public class Main {
 
                     jaOut.put(joTransfer);
                     jsonDelayed.put(joTransfer);
-                    jsonmDelayed.putIfEmpty(sTrainId,joTransfer);
+                    //jsonmDelayed.putIfEmpty(sTrainId,joTransfer);
                     jsonoDelayed.put(sTrainId,joTransfer);
                     System.out.println(sbOut);
                 }
@@ -409,15 +403,6 @@ public class Main {
 
             main.AdjustNextRun();
 
-
-            FileOutputStream fos=new FileOutputStream(main.fDelayedFile);
-            ObjectOutputStream oos=new ObjectOutputStream(fos);
-            main.jsonoDelayed.put("Test",joVas);
-            main.jsonmDelayed.put("Test",joVas);
-            //oos.writeObject(main.jsonmDelayed);
-            //oos.close();
-
-
             System.out.println("Next run: "+main.zdtSuggestedNextRun);
             //main.ExecuteAtCmd();
 
@@ -432,7 +417,7 @@ public class Main {
     private void SaveDelayed() {
         try {
             FileWriter fw=new FileWriter(fDelayedFile);
-            jsonDelayed.write(fw);
+            jsonoDelayed.write(fw);
             fw.close();
         } catch (IOException e) {
             System.out.println("Fel vid filskrivning.");
