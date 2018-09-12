@@ -47,9 +47,9 @@ public class Main {
     private List<String> lTrain;
     //private JSONMap<String, JSONObject> jsonmDelayed;
     private JSONObject jsonoDelayed;
+    private long lMinutesToWait;
 
     public Main() {
-        zdtSuggestedNextRun = ZonedDateTime.of(2222,9,9,9,9,9,9,ZoneId.systemDefault());
         fDelayedFile=new File("Delayed-"+ZonedDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE)+".json");
         jsonDelayed=new JSONArray();
         //jsonmDelayed=new JSONMap<String, JSONObject>();
@@ -180,7 +180,7 @@ public class Main {
         JSONArray jaOut=new JSONArray();
         JSONPointer jp=new JSONPointer("/station/transfers/transfer");
         Object obj= jp.queryFrom(joIn);
-        String[] whitelist= new String[]{"Västerås", "Stockholm", "Skövde,Örebro","Arboga"};
+        String[] whitelist= new String[]{"Västerås", "Stockholm", "Skövde,Örebro","Köping"};
 
         JSONArray jaTransfers= (JSONArray) obj;
 
@@ -210,7 +210,7 @@ public class Main {
                 ZonedDateTime zdtNewArrival=getZonedDateTime(joTransfer, "newArrival",true);
                 ZonedDateTime zdtArrival=getZonedDateTime(joTransfer, "arrival",true);
 
-                CalculateNextRun(zdtArrival, zdtNewArrival);
+                CalculateNextRun(zdtArrival, zdtNewArrival, joTransfer);
 
                 ZonedDateTime zdtNewDeparture=getZonedDateTime(joTransfer, "newDeparture");
                 ZonedDateTime zdtDeparture=getZonedDateTime(joTransfer, "departure");
@@ -260,12 +260,15 @@ public class Main {
                         sbOut.append(oComment);
                     }
 
-                    jaOut.put(joTransfer);
                     jsonDelayed.put(joTransfer);
                     //jsonmDelayed.putIfEmpty(sTrainId,joTransfer);
+                    if(!jsonoDelayed.isNull(sTrainId)) {
+                        jsonoDelayed.remove(sTrainId);
+                    }
                     jsonoDelayed.put(sTrainId,joTransfer);
                     System.out.println(sbOut);
                 }
+                jaOut.put(joTransfer);
             }
             else {
                 //System.out.println("Bort:"+joTransfer);
@@ -274,7 +277,7 @@ public class Main {
         return jaOut;
     }
 
-    private void CalculateNextRun(ZonedDateTime zdtArrival, ZonedDateTime zdtNewArrival) {
+    private void CalculateNextRun(ZonedDateTime zdtArrival, ZonedDateTime zdtNewArrival, JSONObject joTransfer) {
         //Check the earliest time.
         //Compare late time with ordinary
 
@@ -284,8 +287,12 @@ public class Main {
         } else {
             zdt=zdtArrival;
         }
-        if(zdt!=null&&zdtSuggestedNextRun.isAfter(zdt)) {
+        if(zdt==null) {
+            return;
+        }
+        if(zdtSuggestedNextRun.isAfter(zdt)&&zdt.isAfter(ZonedDateTime.now())) {
             zdtSuggestedNextRun=zdt;
+            System.out.println("New time "+joTransfer);
         }
     }
 
@@ -300,6 +307,7 @@ public class Main {
         } else {
             zdtSuggestedNextRun=zdtSuggestedNextRun.minusMinutes(1);
         }
+        lMinutesToWait=Duration.between(zdtCurrentTime,zdtSuggestedNextRun ).toMinutes();
     }
 
     private class StreamGobbler implements Runnable {
@@ -349,11 +357,14 @@ public class Main {
         assert exitCode == 0;
     }
 
-    private void SaveJSONObject(String sTown, JSONObject jsonObject) {
+    private void SaveJSON(String sTown, JSONObject jsonObject, JSONArray jsonArray) {
         String sNow=ZonedDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).replace(":",".");
         try {
             FileWriter fw=new FileWriter(sTown+"-"+sNow+".json");
             jsonObject.write(fw);
+            fw.close();
+            fw=new FileWriter("Filter-"+sTown+"-"+sNow+".json");
+            jsonArray.write(fw);
             fw.close();
         } catch (IOException e) {
             e.printStackTrace();
@@ -379,46 +390,53 @@ public class Main {
             System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http", "DEBUG");
             System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "ERROR");
 */
-            main.createHttpClient(args[0]);
+            while (true) {
+                main.zdtSuggestedNextRun = ZonedDateTime.of(2222,9,9,9,9,9,9,ZoneId.systemDefault());
 
-            //Västerås
-            System.out.println("Västerås");
-            JSONObject joVas = main.getJSON("http://api.tagtider.net/v1/stations/314.json");
+                main.createHttpClient(args[0]);
 
-            main.SaveJSONObject("Västerås", joVas);
+                //Västerås
+                System.out.println("Västerås");
+                JSONObject joVas = main.getJSON("http://api.tagtider.net/v1/stations/314.json");
 
-            //Remove all entries without delays
-            JSONArray jaVasDelayed=main.getDelays("Västerås", joVas);
+                //Remove all entries without delays
+                JSONArray jaVasFiltered = main.getDelays("Västerås", joVas);
+                main.SaveJSON("Västerås", joVas, jaVasFiltered);
 
-            //Sthlm
-            System.out.println("Stockholm");
-            JSONObject joSthlm= main.getJSON("http://api.tagtider.net/v1/stations/243.json");
+                //Sthlm
+                System.out.println("Stockholm");
+                JSONObject joSthlm = main.getJSON("http://api.tagtider.net/v1/stations/243.json");
 
-            main.SaveJSONObject("Stockholm", joSthlm);
+                //Remove all entries without delays
+                JSONArray jaSthlmFiltered = main.getDelays("Stockholm", joSthlm);
+                main.SaveJSON("Stockholm", joSthlm,jaSthlmFiltered);
 
-            //Remove all entries without delays
-            JSONArray jaSthlmDelayed=main.getDelays("Stockholm", joSthlm);
+                main.SaveDelayed();
 
-            main.SaveDelayed();
+                main.AdjustNextRun();
 
-            main.AdjustNextRun();
+                System.out.println("Next run: " + main.zdtSuggestedNextRun + ", in " + main.lMinutesToWait+" minutes");
+                //main.ExecuteAtCmd();
 
-            System.out.println("Next run: "+main.zdtSuggestedNextRun);
-            //main.ExecuteAtCmd();
-
-            System.out.println(jaVasDelayed);
-            System.out.println(jaSthlmDelayed);
+//                System.out.println(jaVasDelayed);
+//                System.out.println(jaSthlmDelayed);
+                Thread.sleep(main.lMinutesToWait * 60000);
+            }
             } catch (Exception e) {
                 System.out.println("\nNu blev det fel!");
                 System.out.println(e);
+                e.printStackTrace();
             }
     }
 
     private void SaveDelayed() {
         try {
-            FileWriter fw=new FileWriter(fDelayedFile);
-            jsonoDelayed.write(fw);
-            fw.close();
+            //Do not save if empty
+            if(jsonoDelayed.length()>0) {
+                FileWriter fw = new FileWriter(fDelayedFile);
+                jsonoDelayed.write(fw);
+                fw.close();
+            }
         } catch (IOException e) {
             System.out.println("Fel vid filskrivning.");
             e.printStackTrace();
