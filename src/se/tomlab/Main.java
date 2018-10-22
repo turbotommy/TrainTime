@@ -18,6 +18,7 @@ import org.json.JSONObject;
 import org.json.JSONPointer;
 
 import java.io.*;
+import java.net.UnknownHostException;
 import java.nio.CharBuffer;
 import java.nio.file.FileSystems;
 import java.text.DateFormat;
@@ -378,6 +379,7 @@ public class Main {
             if (args.length>1&&args[1].toLowerCase().contains("noproxy")) {
                 main.bProxyNeeded=false;
             }
+            System.out.println("TrainTime v1.0");
 
             //TODO: Argument for writing encrypted parameters
             //Mangle mangle=new Mangle();
@@ -391,36 +393,45 @@ public class Main {
             System.setProperty("org.apache.commons.logging.simplelog.log.org.apache.http.wire", "ERROR");
 */
             while (true) {
-                main.zdtSuggestedNextRun = ZonedDateTime.of(2222,9,9,9,9,9,9,ZoneId.systemDefault());
+                try {
+                    main.zdtSuggestedNextRun = ZonedDateTime.of(2222,9,9,9,9,9,9,ZoneId.systemDefault());
 
-                main.createHttpClient(args[0]);
+                    main.createHttpClient(args[0]);
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
-                //Västerås
-                System.out.println("Västerås");
-                JSONObject joVas = main.getJSON("http://api.tagtider.net/v1/stations/314.json");
+                    //Västerås
+                    System.out.println("------------ Västerås "+LocalDateTime.now().format(formatter)+" --------------");
+                    JSONObject joVas = main.getJSON("http://api.tagtider.net/v1/stations/314.json");
 
-                //Remove all entries without delays
-                JSONArray jaVasFiltered = main.getDelays("Västerås", joVas);
-                main.SaveJSON("Västerås", joVas, jaVasFiltered);
+                    //Remove all entries without delays
+                    JSONArray jaVasFiltered = main.getDelays("Västerås", joVas);
+                    main.SaveJSON("Västerås", joVas, jaVasFiltered);
 
-                //Sthlm
-                System.out.println("Stockholm");
-                JSONObject joSthlm = main.getJSON("http://api.tagtider.net/v1/stations/243.json");
+                    //Sthlm
+                    System.out.println("Stockholm");
+                    JSONObject joSthlm = main.getJSON("http://api.tagtider.net/v1/stations/243.json");
 
-                //Remove all entries without delays
-                JSONArray jaSthlmFiltered = main.getDelays("Stockholm", joSthlm);
-                main.SaveJSON("Stockholm", joSthlm,jaSthlmFiltered);
+                    //Remove all entries without delays
+                    JSONArray jaSthlmFiltered = main.getDelays("Stockholm", joSthlm);
+                    main.SaveJSON("Stockholm", joSthlm,jaSthlmFiltered);
 
-                main.SaveDelayed();
+                    main.SaveDelayed();
 
-                main.AdjustNextRun();
+                    main.AdjustNextRun();
 
-                System.out.println("Next run: " + main.zdtSuggestedNextRun + ", in " + main.lMinutesToWait+" minutes");
-                //main.ExecuteAtCmd();
+                    System.out.println("Next run: " + main.zdtSuggestedNextRun + ", in " + main.lMinutesToWait+" minutes");
+                    //main.ExecuteAtCmd();
 
-//                System.out.println(jaVasDelayed);
-//                System.out.println(jaSthlmDelayed);
-                Thread.sleep(main.lMinutesToWait * 60000);
+    //                System.out.println(jaVasDelayed);
+    //                System.out.println(jaSthlmDelayed);
+                    Thread.sleep(main.lMinutesToWait * 60000);
+                } catch (UnknownHostException uhe) {
+                    System.out.println("\nNätverksfel!");
+                    Thread.sleep(20000);
+                } catch (java.net.NoRouteToHostException nrth) {
+                    System.out.println("\nHittar inte host!");
+                    Thread.sleep(20000);
+                }
             }
             } catch (Exception e) {
                 System.out.println("\nNu blev det fel!");
