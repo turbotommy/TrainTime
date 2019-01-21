@@ -49,6 +49,7 @@ public class Main {
     //private JSONMap<String, JSONObject> jsonmDelayed;
     private JSONObject jsonoDelayed;
     private long lMinutesToWait;
+    private StringBuffer sb;
 
     public Main() {
         fDelayedFile=new File("Delayed-"+ZonedDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE)+".json");
@@ -76,7 +77,7 @@ public class Main {
 
     private JSONObject getJSON(InputStreamReader isr) throws IOException {
         BufferedReader br=new BufferedReader(isr);
-        StringBuilder sb = new StringBuilder();
+        sb = new StringBuffer();
         String line;
 
         while ((line = br.readLine()) != null) {
@@ -379,7 +380,7 @@ public class Main {
             if (args.length>1&&args[1].toLowerCase().contains("noproxy")) {
                 main.bProxyNeeded=false;
             }
-            System.out.println("TrainTime v1.0");
+            System.out.println("TrainTime v1.1");
 
             //TODO: Argument for writing encrypted parameters
             //Mangle mangle=new Mangle();
@@ -430,6 +431,12 @@ public class Main {
                     Thread.sleep(20000);
                 } catch (java.net.NoRouteToHostException nrth) {
                     System.out.println("\nHittar inte host!");
+                    Thread.sleep(20000);
+                } catch (org.json.JSONException jsonex) {
+                    System.out.println("\nJSON-fel!");
+                    System.out.println(jsonex.getLocalizedMessage());
+                    System.out.println("I sträng:");
+                    System.out.println(main.sb);
                     Thread.sleep(20000);
                 }
             }
