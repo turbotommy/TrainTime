@@ -25,7 +25,7 @@ public class Mangle {
         props.setProperty("passwd", encrypt("codemocracy", secretKey));
         props.setProperty("hostname", encrypt("api.tagtider.net", secretKey));
         props.setProperty("port", encrypt("80", secretKey));
-        props.setProperty("puser", encrypt("", secretKey));
+        props.setProperty("puser", encrypt("b605td", secretKey));
         props.setProperty("ppasswd", encrypt("", secretKey));
         props.setProperty("phostname", encrypt("", secretKey));
         props.setProperty("pport", encrypt("8080", secretKey));
